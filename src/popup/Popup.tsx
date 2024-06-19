@@ -3,12 +3,12 @@ import React, {useState, useEffect} from 'react'
 function Popup() {
     const [messageResponseCode, setMessageResponseCode] = useState<number>();
     const [workdayHours, setWorkdayHours] = useState<string>('');
-    const [workingOct12, setWorkingOct12] = useState<boolean>(false);
+    const [workingBreedDay, setWorkingBreedDay] = useState<boolean>(false);
 
     const onChangedHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
         const checked = e.target.checked;
-        chrome.storage.sync.set({ workingOct12: e.target.checked })
-        setWorkingOct12(checked);
+        chrome.storage.sync.set({ workingBreedDay: e.target.checked })
+        setWorkingBreedDay(checked);
     }
 
     const onUpdateWorkdayHours = async () => {
@@ -28,7 +28,7 @@ function Popup() {
 
     useEffect(() => {
         chrome.storage.sync.get('workdayHours', (result) => setWorkdayHours(result['workdayHours']));
-        chrome.storage.sync.get('workingOct12', (result) => setWorkingOct12(Boolean(result['workingOct12'])));
+        chrome.storage.sync.get('workingBreedDay', (result) => setWorkingBreedDay(Boolean(result['workingBreedDay'])));
     },[])
 
     return (
@@ -57,11 +57,11 @@ function Popup() {
                     <input
                         className="form-check-input"
                         type="checkbox"
-                        id="workingOct12"
+                        id="workingBreedDay"
                         onChange={onChangedHandler}
-                        checked={workingOct12}
+                        checked={workingBreedDay}
                     />
-                    <label className="form-check-label" htmlFor="workingOct12">
+                    <label className="form-check-label" htmlFor="workingBreedDay">
                         Working on October's 12th?
                     </label>                  
                 </div>
