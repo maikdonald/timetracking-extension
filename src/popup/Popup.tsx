@@ -1,5 +1,7 @@
 import React, {useState, useEffect} from 'react'
+import './popup.css';
 
+const WORKING_HOURS_OPTIONS = ['4', '6', '8'];
 const WORKDAY_HOURS_DEFAULT = '8';
 
 type MessageType = "HOURS_PER_DAY_UPDATED" | "WORKING_BREED_DAY";
@@ -59,6 +61,14 @@ function Popup() {
                 <h3 id="title">Settings</h3>
                 <div className='settings-entry'>
                     <label htmlFor="workdayHours">Working Hours</label>
+
+                    <div className='working-hours-setting'>
+                       {
+                            WORKING_HOURS_OPTIONS.map((workingHourOption, i) => {
+                                return <button key={i} onClick={(e) => setWorkdayHours(workingHourOption)}>{workingHourOption}</button>
+                            })
+                       } 
+                    </div>
                     <div className='working-hours-setting'>
                         <input
                         type='text'

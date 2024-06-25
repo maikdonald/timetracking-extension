@@ -1,0 +1,36 @@
+/* darker
+#254d0d
+#bfd05f
+#dfa90d
+#f4dc8c
+#fff0e1
+lighter*/
+
+body {
+    background-color: #f4dc8c;
+    color: #254d06;
+    border-radius: 5%;
+    border: 1px solid;
+    margin: 0.4rem;
+    width: 200px;
+}
+
+#timetracking-popup {
+    background: #fefccf;
+    margin: 0;
+    padding: 0.6rem;
+}
+
+#timetracking-popup #title {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.settings-entry {
+    padding: 0.5rem 0;
+}
+
+.working-hours-setting {
+    display: flex;
+    justify-content: space-between;
+}
