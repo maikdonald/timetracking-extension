@@ -1,5 +1,5 @@
 {
-  "name": "React Chrome Extension",
+  "name": "Lemonade Timetracking Extension",
   "version": "1.0.0",
   "manifest_version": 3,
   "content_scripts": [
@@ -9,7 +9,7 @@
     }
   ],
   "action": {
-    "default_title": "Chrome Extension With React",
+    "default_title": "Open settings",
     "default_popup": "popup.html"
   },
   "permissions": [

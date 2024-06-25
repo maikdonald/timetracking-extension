@@ -1,10 +1,17 @@
-import { useState } from "react";
+import parse from 'parse-duration'
+import { useEffect, useState } from "react";
+import { getDayEntriesToConsiderText, getHumanTime, getTotalMonthHoursToWorkInMs, getTotalMonthWorkedHoursMs } from "./TimeBalanceBoxHelpers";
+
+declare global {
+  var initialized: boolean;
+}
 
 type CallbackType = 'HOURS_PER_DAY_UPDATED' | 'WORKING_BREED_DAY';
 type UpdateStateTypes = number | boolean;
 
 type PopupMessage = {
-  type: string;
+  type: CallbackType;
+  value: UpdateStateTypes
 }
 
 type CustomResponse = {responseCode: number};
@@ -32,38 +39,78 @@ const getWorkingBreedDayFromLocalStorage = async (): Promise<boolean> => {
 const installWorkdayHoursListener = async (onResponseCallbacks: ResponseCallbacks) => {
   // initially we execute the following lines to get the latest values from the localStorage
   getWorkdayHoursFromLocalStorage().then((workdayHours) => onResponseCallbacks['HOURS_PER_DAY_UPDATED'](workdayHours));
+  getWorkingBreedDayFromLocalStorage().then((workingBreedDay) => onResponseCallbacks['WORKING_BREED_DAY'](workingBreedDay));
   
-  chrome.runtime.onMessage.addListener((request: PopupMessage, sender, sendResponse: ContentScriptResponse) => {
-    // notifying the popup about the received message
-    sendResponse({responseCode: 200}); 
-    
-    
-    const { type } = request;
-    
-    switch (type){
-      case 'HOURS_PER_DAY_UPDATED':
-        // when we get this message we update the workdayHours value in the app that we have in the localStorage
-        getWorkdayHoursFromLocalStorage().then((workdayHours) => onResponseCallbacks[type](workdayHours));
-        break
-      case 'WORKING_BREED_DAY':
-        // when we get this message we update the workingBreedDay value in the app that we have in the localStorage
-        getWorkingBreedDayFromLocalStorage().then((workingBreedDay) => onResponseCallbacks[type](workingBreedDay))
-        break
-      default:
-        console.warn("Timetrack-Extension :: not captured message")
-    }
-  })
+  if (!window.initialized) {
+    window.initialized = true;
+    chrome.runtime.onMessage.addListener((request: PopupMessage, sender, sendResponse: ContentScriptResponse) => {
+      const { type, value } = request;
+      // updating the value in the state
+      onResponseCallbacks[type](value)
+      
+      let localStorageKey;
+      switch (type){
+        case 'HOURS_PER_DAY_UPDATED':
+          localStorageKey = 'workdayHours';
+          break
+          case 'WORKING_BREED_DAY':
+            localStorageKey = 'workingBreedDay';
+            break
+            default:
+              console.warn("Timetrack-Extension :: not captured message")
+            }
+            
+      // we update the local storage for the next time the user visits the page
+      if (localStorageKey)
+        chrome.storage.sync.  set({ [localStorageKey]: value });
+      
+      // notifying the popup about the received message      
+      sendResponse({responseCode: 200}); 
+    })
+  }
 }
 
 
-
-const TimeBalanceBox: {timeTrackEntries: NodeListOf<Element>} = ({timeTrackEntries}) => {
+const TimeBalanceBox = ({dayEntriesElements}: {dayEntriesElements: NodeListOf<Element>}) => {
   const [workdayHours, setWorkdayHours] = useState<UpdateStateTypes>(WORKDAY_HOURS_DEFAULT)
   const [workingBreedDay, setWorkingBreedDay] = useState<UpdateStateTypes>(false)
   
   // initializing the listener + getting the workdayHours from the localStorage
   installWorkdayHoursListener({'HOURS_PER_DAY_UPDATED': setWorkdayHours, 'WORKING_BREED_DAY': setWorkingBreedDay})
   
+  const dayEntriesToConsider = getDayEntriesToConsiderText(dayEntriesElements, workingBreedDay as boolean);
+  const totalMonthWorkedHoursMs = getTotalMonthWorkedHoursMs(dayEntriesToConsider);
+  const totalMonthHoursToWorkInMs = getTotalMonthHoursToWorkInMs(dayEntriesToConsider, workdayHours as number);
+  const timeBalanceHumanTime = getHumanTime(totalMonthWorkedHoursMs-totalMonthHoursToWorkInMs, true);
+  
+  return ( 
+    <>
+      { dayEntriesElements.length === 0 && 
+        <div className="content-wrapper">
+          <div className="placeholder">
+            <div className="animated-background" />
+          </div>
+        </div>
+      }
+      { dayEntriesElements.length > 0 && 
+        <>
+          <div className="TimesheetSummary__divider" />
+          <div style={{backgroundColor: `${parse(timeBalanceHumanTime, 'h') >= 0 ? 'rgba(0,255,0,0.1)' : 'rgba(255,0,0,0.1)'}`, padding: '1rem 0.5rem'}}>
+            <div className="TimesheetSummary__title TimesheetSummary__title--payPeriod">Monthly Hours Balance</div>
+            <div className="TimesheetSummary__text">{`Worked / Should Have Worked: ${getHumanTime(totalMonthWorkedHoursMs, false)} / ${getHumanTime(totalMonthHoursToWorkInMs, false)} `}</div>
+            <div className="TimesheetSummary__payPeriodTotal">
+              <span className="TimesheetSummary__payPeriodClockIcon">
+                <svg aria-hidden="true" focusable="false" pointer-events="none" width="20" height="20" className="css-0">
+                  <use xlinkHref="#fab-clock-20x20"></use>
+                </svg>
+              </span>
+              {timeBalanceHumanTime}
+            </div>
+          </div>
+        </>
+      }
+    </>
+  )
 
 };
 

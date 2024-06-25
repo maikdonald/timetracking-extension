@@ -1,67 +1,87 @@
 import React, {useState, useEffect} from 'react'
 
+const WORKDAY_HOURS_DEFAULT = '8';
+
+type MessageType = "HOURS_PER_DAY_UPDATED" | "WORKING_BREED_DAY";
+type ValueType = string | boolean;
+type UpdateStateTypes = number | undefined;
+type ResponseCallback =  React.Dispatch<React.SetStateAction<UpdateStateTypes>>
+
+type CustomResponse = {responseCode: number};
+
+const sendMessageToContentScript = async (messageType: MessageType, value: ValueType, responseCallback: ResponseCallback) => {
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    console.log(tab)
+    if (tab && tab.id){
+        const response = await chrome.tabs.sendMessage(tab.id, {type: messageType, value}) as CustomResponse;
+        if (response?.responseCode) responseCallback(response?.responseCode)
+
+        setTimeout(() => {
+            responseCallback(undefined);
+        }, 5000)
+    }
+} 
+
 function Popup() {
     const [messageResponseCode, setMessageResponseCode] = useState<number>();
-    const [workdayHours, setWorkdayHours] = useState<string>('');
+    
+    const [invalidInputError, setInvalidInputError] = useState<string>();
+
+    const [workdayHours, setWorkdayHours] = useState<string>(WORKDAY_HOURS_DEFAULT);
     const [workingBreedDay, setWorkingBreedDay] = useState<boolean>(false);
 
     const onChangedHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
         const checked = e.target.checked;
         chrome.storage.sync.set({ workingBreedDay: e.target.checked })
         setWorkingBreedDay(checked);
+        sendMessageToContentScript('WORKING_BREED_DAY', checked, setMessageResponseCode)
     }
 
     const onUpdateWorkdayHours = async () => {
-        const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-        console.log(tab)
-        if (tab && tab.id){
-            const response = await chrome.tabs.sendMessage(tab.id, {type: "HOURS_PER_DAY_UPDATED"});
-            if (response?.responseCode) setMessageResponseCode(response?.responseCode)
+        if (workdayHours.match(/\d{1}/)){
+            sendMessageToContentScript('HOURS_PER_DAY_UPDATED', workdayHours, setMessageResponseCode)
+            chrome.storage.sync.set({ workdayHours: workdayHours });
+            setInvalidInputError(undefined)
 
-            setTimeout(() => {
-                setMessageResponseCode(undefined);
-            }, 5000)
+        } else {
+            setInvalidInputError('The amount of hours you work per day must be a number from 1 to 9')
         }
-        
-        chrome.storage.sync.set({ workdayHours: workdayHours });
     }
 
     useEffect(() => {
-        chrome.storage.sync.get('workdayHours', (result) => setWorkdayHours(result['workdayHours']));
-        chrome.storage.sync.get('workingBreedDay', (result) => setWorkingBreedDay(Boolean(result['workingBreedDay'])));
+        chrome.storage.sync.get('workdayHours').then(result => setWorkdayHours(result['workdayHours']));
+        chrome.storage.sync.get('workingBreedDay').then(result => setWorkingBreedDay(Boolean(result['workingBreedDay'])));
     },[])
 
     return (
-        <div className='w-72'>
-            <div className='p-4'>
-                <h1 className='text-base mb-4 font-medium'>Lemonade BambooHR Timeshifts</h1>
-
-                <div className='mb-10'>
-                    <label htmlFor="workdayHours">How many hours do you work a day?</label>
-                    <input
+        <div id="timetracking-popup">
+            <div>
+                <h3 id="title">Settings</h3>
+                <div className='settings-entry'>
+                    <label htmlFor="workdayHours">Working Hours</label>
+                    <div className='working-hours-setting'>
+                        <input
                         type='text'
                         id='workdayHours'
                         value={workdayHours}
-                        onChange={e => setWorkdayHours(e.target.value)}
-                        className="bg-gray-50 border border-gray-200 w-full rounded-lg px-4 py-2 text-black focus:outline-none mb-5" />
-
-                    <div className='flex items-center justify-end'>
-                        <button onClick={onUpdateWorkdayHours} className="bg-green-500 hover:bg-green-400 transition duration-300 px-6 py-2 rounded-md text-white text-center">
+                        onChange={(e) => setWorkdayHours(e.target.value)}
+                        />
+                        <button onClick={onUpdateWorkdayHours} >
                             <span>Save</span>
                         </button>
                     </div>
                     {messageResponseCode && messageResponseCode === 200 && <div>Message Successful</div>}
+                    {invalidInputError && <div>{invalidInputError}</div>}
                 </div>
                 
-                <div className="form-check">
+                <div className='settings-entry'>
                     <input
-                        className="form-check-input"
                         type="checkbox"
                         id="workingBreedDay"
                         onChange={onChangedHandler}
                         checked={workingBreedDay}
                     />
-                    <label className="form-check-label" htmlFor="workingBreedDay">
+                    <label htmlFor="workingBreedDay">
                         Working on October's 12th?
                     </label>                  
                 </div>

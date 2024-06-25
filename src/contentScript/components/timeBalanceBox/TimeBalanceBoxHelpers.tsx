@@ -1,3 +1,12 @@
+import parse from 'parse-duration'
+
+/**
+ * Function that clean up the dayEntries that are empty (0:00)
+ * @param dayEntries 
+ * @returns 
+ */
+export const removeEmptyDayEntries = (dayEntries: Array<string>) => dayEntries
+.filter(dayEntry => dayEntry.replace(/[^0-9.]/g,"") !== "000");
 
 /**
  * Function that returns the abbreviation of the month the user is reviewing
@@ -79,8 +88,8 @@ const needDayToBeIncluded = (dayEntryElement: Element) => {
   }
 }
 
-const needDayToBeExcluded = (dayEntryElement: Element) => {
-  return isWeekend(dayEntryElement) || (isBreedDay /**&& !workingOnBreedDay */) || isPaidLeave(dayEntryElement) 
+const needDayToBeExcluded = (dayEntryElement: Element, workingBreedDay: boolean) => {
+  return isWeekend(dayEntryElement) || (isBreedDay(dayEntryElement) && !workingBreedDay) || isPaidLeave(dayEntryElement) 
 }
 
 
@@ -89,7 +98,7 @@ export const getDayEntriesToConsiderText = (dayEntriesElements: NodeListOf<Eleme
   const dayEntriesToConsiderText: string[] = []
   
   dayEntriesElements.forEach(dayEntryElement => {
-    if (needDayToBeIncluded(dayEntryElement) && !needDayToBeExcluded(dayEntryElement)){
+    if (needDayToBeIncluded(dayEntryElement) && !needDayToBeExcluded(dayEntryElement, workingBreedDay)){
       const dayEntryElementText = getDayEntryElementText(dayEntryElement);
       if (dayEntryElementText)
         dayEntriesToConsiderText.push(dayEntryElementText)
@@ -97,4 +106,42 @@ export const getDayEntriesToConsiderText = (dayEntriesElements: NodeListOf<Eleme
   })
 
   return dayEntriesToConsiderText;
+}
+
+/**
+ * Function that return the sum of all valid dayEntries in ms
+ * @param dayEntries 
+ * @returns 
+ */
+export const getTotalMonthWorkedHoursMs = (dayEntries: Array<string>) => removeEmptyDayEntries(dayEntries).reduce((acc, curr) => parse(acc.toString())+parse(curr), 0);
+
+/**
+ * Function that return the sum of all hours that the user should work on the month in ms
+ * @param dayEntries 
+ * @param workdayHours
+ * @returns 
+ */
+export const getTotalMonthHoursToWorkInMs = (dayEntries: Array<string>, workdayHours: number) => parse(`${dayEntries.length*workdayHours}h`)
+
+/**
+ * Function that converts a time in ms to a "human time" (00 H 00 min). It could be positive or negative
+ * @param msTime 
+ * @param includeBalanceSign 
+ * @returns 
+ */
+export const getHumanTime = (msTime: number, includeBalanceSign: boolean) => {
+  const parsedTime = parse(msTime.toString(),'m');
+  const hours = Math.floor(Math.abs(parsedTime)/60);
+  const mins = Math.abs(parsedTime)%60;
+  const positiveOrNegative = includeBalanceSign ? (parsedTime < 0 ? '-' : (parsedTime > 0 ? '+' : '')) : '';
+
+  if (hours > 0 && mins > 0){
+    return `${positiveOrNegative}${hours} h ${mins} min`
+  } else {
+    if (hours > 0){
+      return `${positiveOrNegative}${hours} h`
+    } else {
+      return `${positiveOrNegative}${mins} min`
+    }
+  }
 }
