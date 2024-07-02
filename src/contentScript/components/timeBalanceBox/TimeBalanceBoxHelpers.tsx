@@ -36,7 +36,9 @@ export const isWeekend = (dayEntryElement: Element) => ["Sat", "Sun"].includes(g
 export const isFullDayPaidLeave = (dayEntryElement: Element) => {
   const paidLeaveInformation = dayEntryElement.querySelector(".TimesheetSlat__extraInfoItem")?.textContent;
   const paidLeaveInformationHasNumbers =  paidLeaveInformation?.match(/\d/)
-  return paidLeaveInformation && (!paidLeaveInformationHasNumbers || (paidLeaveInformationHasNumbers && paidLeaveInformation?.replace(/.*(\d).+/, "$1") === "1"))
+  const paidLeaveInformationNumber = paidLeaveInformationHasNumbers && paidLeaveInformation?.replace(/.*(\d).+/, "$1");
+  // Sometimes it says "1 holidays day"; sometimes, if you take a holidays that is already a bank holidays, it says "0 holidays day" just above of the bank holidays day
+  return paidLeaveInformation && (!paidLeaveInformationNumber || (paidLeaveInformationNumber && ["0", "1"].includes(paidLeaveInformationNumber)))
 }
 
 /**
