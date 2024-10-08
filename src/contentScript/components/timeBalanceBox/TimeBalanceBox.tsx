@@ -1,6 +1,6 @@
 import parse from 'parse-duration'
-import { useEffect, useState } from "react";
-import { getDayEntriesToConsiderText, getHumanTime, getTotalMonthHoursToWorkInMs, getTotalMonthWorkedHoursMs } from "./TimeBalanceBoxHelpers";
+import { useState } from "react";
+import { getDayEntriesToConsider, getHumanTime, getTotalMonthHoursToWorkInMs, getTotalMonthWorkedHoursMs } from "./TimeBalanceBoxHelpers";
 
 declare global {
   var initialized: boolean;
@@ -78,7 +78,7 @@ const TimeBalanceBox = ({dayEntriesElements}: {dayEntriesElements: NodeListOf<El
   // initializing the listener + getting the workdayHours from the localStorage
   installWorkdayHoursListener({'HOURS_PER_DAY_UPDATED': setWorkdayHours, 'WORKING_BREED_DAY': setWorkingBreedDay})
   
-  const dayEntriesToConsider = getDayEntriesToConsiderText(dayEntriesElements, workingBreedDay as boolean);
+  const dayEntriesToConsider = getDayEntriesToConsider(dayEntriesElements, workingBreedDay as boolean);
   const totalMonthWorkedHoursMs = getTotalMonthWorkedHoursMs(dayEntriesToConsider);
   const totalMonthHoursToWorkInMs = getTotalMonthHoursToWorkInMs(dayEntriesToConsider, workdayHours as number);
   const timeBalanceHumanTime = getHumanTime(totalMonthWorkedHoursMs-totalMonthHoursToWorkInMs, true);

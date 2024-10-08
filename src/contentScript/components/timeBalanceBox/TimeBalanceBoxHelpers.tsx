@@ -29,11 +29,28 @@ export const getDayNameAbbrev = (dayEntryElement: Element) => dayEntryElement.qu
 export const isWeekend = (dayEntryElement: Element) => ["Sat", "Sun"].includes(getDayNameAbbrev(dayEntryElement));
 
 /**
- * Function that returns a boolean  to determine if the given day is holidays for the user or not
+ * Function that returns a boolean to determine if the given day is a full day holiday for the user or not
  * @param dayEntryElement 
  * @returns 
  */
-export const isPaidLeave = (dayEntryElement: Element) => Boolean(dayEntryElement.querySelector(".TimesheetSlat__extraInfoItem"))
+export const isFullDayPaidLeave = (dayEntryElement: Element) => {
+  const paidLeaveInformation = dayEntryElement.querySelector(".TimesheetSlat__extraInfoItem")?.textContent;
+  const paidLeaveInformationHasNumbers =  paidLeaveInformation?.match(/\d/)
+  const paidLeaveInformationNumber = paidLeaveInformationHasNumbers && paidLeaveInformation?.replace(/.*(\d).+/, "$1");
+  // Sometimes it says "1 holidays day"; sometimes, if you take a holidays that is already a bank holidays, it says "0 holidays day" just above of the bank holidays day
+  return paidLeaveInformation && (!paidLeaveInformationNumber || (paidLeaveInformationNumber && ["0", "1"].includes(paidLeaveInformationNumber)))
+}
+
+/**
+ * Function that returns a boolean to determine if the given day is a full day holiday for the user or not
+ * @param dayEntryElement 
+ * @returns 
+ */
+export const isPartialHolidays = (dayEntryElement: Element) => {
+  const paidLeaveInformation = dayEntryElement.querySelector(".TimesheetSlat__extraInfoItem")?.textContent;
+  const paidLeaveInformationHasNumbers =  paidLeaveInformation?.match(/\d/)
+  return paidLeaveInformationHasNumbers && paidLeaveInformation?.match(/.*(\d{1}\.\d{1,2}).+/)
+}
 
 /**
  * Function that returns a boolean if the user is working the breed day in Spain (October the 12th)
@@ -61,7 +78,7 @@ export const isReviewingCurrentPayPeriod = () => document.body.querySelectorAll(
  * @param dayEntryElement 
  * @returns 
  */
-export const getDayEntryElementText = (dayEntryElement: Element) => dayEntryElement.querySelector(".TimesheetSlat__dayTotal")?.innerHTML;
+export const getDayEntryElementText = (dayEntryElement: Element) => dayEntryElement.querySelector(".TimesheetSlat__dayTotal")?.innerHTML || "";
 
 /**
  * This function returns true if the day entry test is empty (0h 00m)
@@ -89,23 +106,38 @@ const needDayToBeIncluded = (dayEntryElement: Element) => {
 }
 
 const needDayToBeExcluded = (dayEntryElement: Element, workingBreedDay: boolean) => {
-  return isWeekend(dayEntryElement) || (isBreedDay(dayEntryElement) && !workingBreedDay) || isPaidLeave(dayEntryElement) 
+  return isWeekend(dayEntryElement) || (isBreedDay(dayEntryElement) && !workingBreedDay) || isFullDayPaidLeave(dayEntryElement) 
 }
 
+/**
+ * This function gets all the dayEntriesElements and filters the ones that doesn't need to be included (holidays, etc..)
+ * @param dayEntriesElements 
+ * @param workingBreedDay 
+ * @returns 
+ */
+export const getDayEntriesToConsider = (dayEntriesElements: NodeListOf<Element>, workingBreedDay: boolean) => {
 
-export const getDayEntriesToConsiderText = (dayEntriesElements: NodeListOf<Element>, workingBreedDay: boolean) => {
-
-  const dayEntriesToConsiderText: string[] = []
+  return Array.from(dayEntriesElements).filter(dayEntryElement => needDayToBeIncluded(dayEntryElement) && !needDayToBeExcluded(dayEntryElement, workingBreedDay));
   
-  dayEntriesElements.forEach(dayEntryElement => {
-    if (needDayToBeIncluded(dayEntryElement) && !needDayToBeExcluded(dayEntryElement, workingBreedDay)){
-      const dayEntryElementText = getDayEntryElementText(dayEntryElement);
-      if (dayEntryElementText)
-        dayEntriesToConsiderText.push(dayEntryElementText)
-    }
-  })
+}
 
-  return dayEntriesToConsiderText;
+/**
+ * This function will recieve the element with a dayEntryElement and the hours the user work every day. Then will extract the percentage of that day that the user has holidays in hours and then return that amount in ms to be able to remove it from the total hourse the user need to work
+ * @param dayEntryElement 
+ * @param workdayHours 
+ * @returns 
+ */
+const getMsToDiscountFromPartialHolidays = (dayEntryElement: Element, workdayHours: number) => {
+  // this should be something like 0,15 - 0,60
+  const dayHolidayPercentageString = dayEntryElement?.querySelector(".TimesheetSlat__extraInfoItem")?.textContent?.replace(/.*(\d{1}\.\d{1,2}).+/, "$1");
+  if (dayHolidayPercentageString){
+    // this is the value converted to float and then to percentage
+    const dayHolidayPercentage = parseFloat(dayHolidayPercentageString)*100;
+    // then we get the amount of hours that the previous value mean depending on the hours you work every day
+    const hoursToWork = dayHolidayPercentage*workdayHours/100;
+    return parse(`${hoursToWork}h`)  
+  }
+  return 0;
 }
 
 /**
@@ -113,15 +145,30 @@ export const getDayEntriesToConsiderText = (dayEntriesElements: NodeListOf<Eleme
  * @param dayEntries 
  * @returns 
  */
-export const getTotalMonthWorkedHoursMs = (dayEntries: Array<string>) => removeEmptyDayEntries(dayEntries).reduce((acc, curr) => parse(acc.toString())+parse(curr), 0);
+export const getTotalMonthWorkedHoursMs = (dayEntries: Array<Element>) => {
+  const dayEntriesText = dayEntries.map(dayEntry => getDayEntryElementText(dayEntry))
+  return removeEmptyDayEntries(dayEntriesText).reduce((acc, curr) => parse(acc.toString())+parse(curr), 0)
+};
 
 /**
  * Function that return the sum of all hours that the user should work on the month in ms
- * @param dayEntries 
+ * @param dayEntriesElements 
  * @param workdayHours
  * @returns 
  */
-export const getTotalMonthHoursToWorkInMs = (dayEntries: Array<string>, workdayHours: number) => parse(`${dayEntries.length*workdayHours}h`)
+export const getTotalMonthHoursToWorkInMs = (dayEntriesElements: Array<Element>, workdayHours: number) => {
+  const totalMonthHoursNumber = dayEntriesElements.length*workdayHours;
+  if (dayEntriesElements.some(dayEntryElement => isPartialHolidays(dayEntryElement))){
+    const timeToRemoveBecauseOfPartialHolidaysInMs = dayEntriesElements.reduce((acc, dayEntryElement) => {
+      if (isPartialHolidays(dayEntryElement)){
+        return acc + getMsToDiscountFromPartialHolidays(dayEntryElement, workdayHours)
+      }
+      return acc;
+    }, 0)
+    return parse(`${totalMonthHoursNumber}h`)-timeToRemoveBecauseOfPartialHolidaysInMs;
+  }
+  return parse(`${totalMonthHoursNumber}h`);
+}
 
 /**
  * Function that converts a time in ms to a "human time" (00 H 00 min). It could be positive or negative
@@ -130,7 +177,7 @@ export const getTotalMonthHoursToWorkInMs = (dayEntries: Array<string>, workdayH
  * @returns 
  */
 export const getHumanTime = (msTime: number, includeBalanceSign: boolean) => {
-  const parsedTime = parse(msTime.toString(),'m');
+  const parsedTime = Math.round(parse(msTime.toString(),'m'));
   const hours = Math.floor(Math.abs(parsedTime)/60);
   const mins = Math.abs(parsedTime)%60;
   const positiveOrNegative = includeBalanceSign ? (parsedTime < 0 ? '-' : (parsedTime > 0 ? '+' : '')) : '';
