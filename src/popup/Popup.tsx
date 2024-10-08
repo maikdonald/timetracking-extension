@@ -1,7 +1,10 @@
 import React, {useState, useEffect} from 'react'
 import './popup.css';
+import Slider from '@mui/material/Slider';
+import { Checkbox, FormControlLabel } from '@mui/material';
 
-const WORKING_HOURS_OPTIONS = ['4', '6', '8'];
+const WORKING_HOURS_MIN = '1';
+const WORKING_HOURS_MAX = '8';
 const WORKDAY_HOURS_DEFAULT = '8';
 
 type MessageType = "HOURS_PER_DAY_UPDATED" | "WORKING_BREED_DAY";
@@ -26,13 +29,16 @@ const sendMessageToContentScript = async (messageType: MessageType, value: Value
 
 function Popup() {
     const [messageResponseCode, setMessageResponseCode] = useState<number>();
-    
-    const [invalidInputError, setInvalidInputError] = useState<string>();
 
     const [workdayHours, setWorkdayHours] = useState<string>(WORKDAY_HOURS_DEFAULT);
     const [workingBreedDay, setWorkingBreedDay] = useState<boolean>(false);
 
-    const onChangedHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
+    useEffect(() => {
+        console.log("HELLO", messageResponseCode)
+        messageResponseCode
+        debugger;
+    },[messageResponseCode])
+    const onWorkingBreedDayChangeHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
         const checked = e.target.checked;
         chrome.storage.sync.set({ workingBreedDay: e.target.checked })
         setWorkingBreedDay(checked);
@@ -43,57 +49,59 @@ function Popup() {
         if (workdayHours.match(/\d{1}/)){
             sendMessageToContentScript('HOURS_PER_DAY_UPDATED', workdayHours, setMessageResponseCode)
             chrome.storage.sync.set({ workdayHours: workdayHours });
-            setInvalidInputError(undefined)
 
         } else {
-            setInvalidInputError('The amount of hours you work per day must be a number from 1 to 9')
+            console.error("non-valid input from slider")
         }
     }
 
     useEffect(() => {
-        chrome.storage.sync.get('workdayHours').then(result => setWorkdayHours(result['workdayHours']));
-        chrome.storage.sync.get('workingBreedDay').then(result => setWorkingBreedDay(Boolean(result['workingBreedDay'])));
+        chrome.storage.sync.get('workdayHours').then(result => result['workdayHours'] && setWorkdayHours(result['workdayHours']));
+        chrome.storage.sync.get('workingBreedDay').then(result => typeof result['workingBreedDay'] !== undefined && setWorkingBreedDay(Boolean(result['workingBreedDay'])));
     },[])
 
     return (
         <div id="timetracking-popup">
             <div>
-                <h3 id="title">Settings</h3>
                 <div className='settings-entry'>
-                    <label htmlFor="workdayHours">Working Hours</label>
+                    <div style={{display: 'flex', justifyContent: 'space-between', padding: '0 0.3rem'}}>
+                        <div>Working Hours</div>
+                        <div>{workdayHours}</div>
+                    </div>
 
-                    <div className='working-hours-setting'>
-                       {
-                            WORKING_HOURS_OPTIONS.map((workingHourOption, i) => {
-                                return <button key={i} onClick={(e) => setWorkdayHours(workingHourOption)}>{workingHourOption}</button>
-                            })
-                       } 
-                    </div>
-                    <div className='working-hours-setting'>
-                        <input
-                        type='text'
-                        id='workdayHours'
-                        value={workdayHours}
-                        onChange={(e) => setWorkdayHours(e.target.value)}
-                        />
-                        <button onClick={onUpdateWorkdayHours} >
-                            <span>Save</span>
-                        </button>
-                    </div>
-                    {messageResponseCode && messageResponseCode === 200 && <div>Message Successful</div>}
-                    {invalidInputError && <div>{invalidInputError}</div>}
-                </div>
-                
-                <div className='settings-entry'>
-                    <input
-                        type="checkbox"
-                        id="workingBreedDay"
-                        onChange={onChangedHandler}
-                        checked={workingBreedDay}
+                    <Slider
+                        size="small"
+                        value={parseInt(workdayHours)}
+                        min={parseInt(WORKING_HOURS_MIN)}
+                        step={1}
+                        max={parseInt(WORKING_HOURS_MAX)}
+                        onChange={(e) => setWorkdayHours((e.target as HTMLInputElement).value.toString())}
+                        onBlur={onUpdateWorkdayHours}
+                        aria-labelledby="non-linear-slider"
+                        sx={{ color: '#dfa90d'}}
                     />
-                    <label htmlFor="workingBreedDay">
-                        Working on October's 12th?
-                    </label>                  
+
+                    {messageResponseCode && messageResponseCode === 200 && <div>Message Successful</div>}
+                </div>
+
+                <div className='settings-entry'>
+                    <FormControlLabel
+                        label="Working on October's 12th?"
+                        sx={{ marginLeft: "0.3rem", '& .MuiFormControlLabel-label': { fontSize: '12px' } }}
+                        labelPlacement='start'
+                        control={
+                        <Checkbox
+                            size="small"
+                            checked={workingBreedDay}
+                            onChange={onWorkingBreedDayChangeHandler}
+                            sx={{
+                                color: "#bfd05f",
+                                '&.Mui-checked': {
+                                    color: "#dfa90d",
+                                },
+                            }}
+                        />}
+                    />
                 </div>
             </div>
         </div>

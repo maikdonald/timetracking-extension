@@ -21,16 +21,6 @@ body {
     padding: 0.6rem;
 }
 
-#timetracking-popup #title {
-    margin-top: 0;
-    margin-bottom: 0;
-}
-
 .settings-entry {
     padding: 0.5rem 0;
-}
-
-.working-hours-setting {
-    display: flex;
-    justify-content: space-between;
 }
