@@ -16,7 +16,7 @@ type CustomResponse = {responseCode: number};
 
 const sendMessageToContentScript = async (messageType: MessageType, value: ValueType, responseCallback: ResponseCallback) => {
     const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-    console.log(tab)
+    
     if (tab && tab.id){
         const response = await chrome.tabs.sendMessage(tab.id, {type: messageType, value}) as CustomResponse;
         if (response?.responseCode) responseCallback(response?.responseCode)
@@ -33,11 +33,6 @@ function Popup() {
     const [workdayHours, setWorkdayHours] = useState<string>(WORKDAY_HOURS_DEFAULT);
     const [workingBreedDay, setWorkingBreedDay] = useState<boolean>(false);
 
-    useEffect(() => {
-        console.log("HELLO", messageResponseCode)
-        messageResponseCode
-        debugger;
-    },[messageResponseCode])
     const onWorkingBreedDayChangeHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
         const checked = e.target.checked;
         chrome.storage.sync.set({ workingBreedDay: e.target.checked })
